@@ -1,0 +1,13 @@
+Input:features/trimmed/uploads.mp4
+Input full path:C:\Users\pavit\Documents\Pavin\MDA\MDA692\Project\API\features\trimmed\uploads.mp4
+Camera parameters:628.385,628.385,471,250
+Output HOG:uploads.hog
+Output video:uploads.avi
+Output aligned directory:uploads_aligned
+Output csv:uploads.csv
+Gaze: 1
+AUs: 1
+Landmarks 2D: 1
+Landmarks 3D: 1
+Pose: 1
+Shape parameters: 1
