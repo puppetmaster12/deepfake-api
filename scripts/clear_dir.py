@@ -22,10 +22,7 @@ contents = os.listdir(feature_maps)
 for item in contents:
     item_path = os.path.join(feature_maps, item)
     if os.path.isfile(item_path):
-        if item.endswith(".mp4"):
-            break
-        else:
-            os.remove(item_path)
+        os.remove(item_path)
     elif os.path.isdir(item_path):
         shutil.rmtree(item_path)
     

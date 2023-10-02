@@ -14,7 +14,8 @@ from flask import send_from_directory
 from flask_cors import CORS
 from sklearn.preprocessing import MinMaxScaler
 from moviepy.editor import VideoFileClip
-
+from moviepy.editor import TextClip
+os.environ["IMAGEMAGICK_BINARY"] = "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"
 
 app = Flask(__name__)
 CORS(app)
@@ -57,10 +58,7 @@ def clear_dir():
     for item in contents:
         item_path = os.path.join(feature_maps, item)
         if os.path.isfile(item_path):
-            if item.endswith(".mp4"):
-                break
-            else:
-                os.remove(item_path)
+            os.remove(item_path)
         elif os.path.isdir(item_path):
             shutil.rmtree(item_path)
         
@@ -110,7 +108,7 @@ class LSTMModel(nn.Module):
         return out
 
 # Path to latest model checkpoint
-MODEL_CHECKPOINT = 'checkpoints/2023-09-21_19-54-55_checkpoint.pth'
+MODEL_CHECKPOINT = 'checkpoints/2023-09-29_12-08-54_checkpoint.pth'
 LABELS_PATH = 'features/labels/labels.json'
 
 # Loading the model to the device
@@ -160,12 +158,18 @@ def lstm_infer(video_path):
         video_data = model(video_features)
 
     # Calculate the final prediction for the video
-    is_deepfake = video_data.item() >= 0.5
-    
+    is_deepfake = video_data.item() >= 0.6
+    prob = video_data.item()
+    # print(prob)
     # clear_dir()
-    return is_deepfake
+    return is_deepfake, prob
 
 # Flask route to handle video upload and calling inference function
+@app.route('/clear', methods=['POST'])
+def clear_directory():
+    clear_dir()
+    return jsonify({"message":"Cleared"})
+
 @app.route('/detection', methods=['POST'])
 def detect_deepfake():
     if 'video' not in request.files:
@@ -179,10 +183,10 @@ def detect_deepfake():
     if file:
         # Save the uploaded video to the temporary directory
         host_url = request.scheme + '://' + request.host
-        file_url = f"{host_url}/static/feature_maps/uploads.mp4"
-        map_path = 'static/feature_maps/uploads.avi'
-        save_path = 'static/feature_maps/uploads.mp4'
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], 'uploads.mp4')
+        file_url = f"{host_url}/static/feature_maps/{file.filename}"
+        map_path = f'static/feature_maps/{file.filename.split(".")[0]}.avi'
+        save_path = f'static/feature_maps/{file.filename}'
+        video_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
         
         # print(video_path)
         file.save(video_path)
@@ -190,24 +194,32 @@ def detect_deepfake():
         r_p = file.filename.split('_')[0]
         
         # Perform inference
-        deepfake_result = lstm_infer(video_dir)
+        deepfake_result, prob = lstm_infer(video_dir)
         d_message = ''
+        vid_text = ''
         
         # Convert avi to mp4
         video = VideoFileClip(map_path)
-        video.write_videofile(save_path, codec='libx264', audio_codec='aac')
         
         # if r_p == 'fake':
         #     d_message = 'Fake'
         # else:
         #     d_message = 'Real'
         # Return the result as JSON
+        d_message = 'Probability of being fake - ' + str(round(prob*100, 2)) + '%'
         if deepfake_result:
-            d_message = 'Fake'
+            vid_text = 'Fake'
+            # vid_text = d_message + ' - Confidence: ' + str(prob*100) + '%'
         else:
-            d_message = 'Real'
+            vid_text = 'Real'
+            # vid_text = d_message + ' - Confidence: ' + str(prob*100) + '%'
         
-        return jsonify({"is_deepfake": d_message, 'video_path': file_url})
+        # text_clip = TextClip(d_message, fontsize=100, color='red')
+        # text_clip = text_clip.set_duration(video.duration)
+        # video_with_text = video.set_pos(("center", "center")).set_duration(video.duration).set_opacity(1.0)
+        video.write_videofile(save_path, codec='libx264', audio_codec='aac')
+        
+        return jsonify({"is_deepfake": d_message, 'video_path': file_url, 'vid_text': vid_text})
     
 
 if __name__ == '__main__':
